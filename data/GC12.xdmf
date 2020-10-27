@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd"[]>
+<Xdmf xmlns:xi="http://www.w3.org/2003/XInclude" Version="2.2">
+ <Domain>
+  <!-- *************** START OF ScanVectorDataContainer *************** -->
+  <Grid Name="ScanVectorDataContainer" GridType="Uniform">
+    <Topology TopologyType="Polyline" NodesPerElement="2" NumberOfElements="180">
+      <DataItem Format="HDF" NumberType="Int" Dimensions="180 2">
+        GC12.dream3d:/DataContainers/ScanVectorDataContainer/_SIMPL_GEOMETRY/SharedEdgeList
+      </DataItem>
+    </Topology>
+    <Geometry Type="XYZ">
+      <DataItem Format="HDF"  Dimensions="360 3" NumberType="Float" Precision="4">
+        GC12.dream3d:/DataContainers/ScanVectorDataContainer/_SIMPL_GEOMETRY/SharedVertexList
+      </DataItem>
+    </Geometry>
+
+    <Attribute Name="Power" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="180 1" NumberType="Float" Precision="4" >
+        GC12.dream3d:/DataContainers/ScanVectorDataContainer/VectorData/Power
+      </DataItem>
+    </Attribute>
+    <Attribute Name="RegionIds" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="180 1" NumberType="Int" Precision="4" >
+        GC12.dream3d:/DataContainers/ScanVectorDataContainer/VectorData/RegionIds
+      </DataItem>
+    </Attribute>
+    <Attribute Name="SliceIds" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="180 1" NumberType="Int" Precision="4" >
+        GC12.dream3d:/DataContainers/ScanVectorDataContainer/VectorData/SliceIds
+      </DataItem>
+    </Attribute>
+    <Attribute Name="Times" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="360 1" NumberType="Float" Precision="8" >
+        GC12.dream3d:/DataContainers/ScanVectorDataContainer/VectorNodeData/Times
+      </DataItem>
+    </Attribute>
+  </Grid>
+  <!-- *************** END OF ScanVectorDataContainer *************** -->
+  <!-- *************** START OF VertexDataContainer *************** -->
+  <Grid Name="VertexDataContainer" GridType="Uniform">
+    <Topology TopologyType="Polyvertex" NumberOfElements="6579">
+      <DataItem Format="HDF" NumberType="Int" Dimensions="6579">
+        GC12.dream3d:/DataContainers/VertexDataContainer/_SIMPL_GEOMETRY/Verts
+      </DataItem>
+    </Topology>
+    <Geometry Type="XYZ">
+      <DataItem Format="HDF"  Dimensions="6579 3" NumberType="Float" Precision="4">
+        GC12.dream3d:/DataContainers/VertexDataContainer/_SIMPL_GEOMETRY/SharedVertexList
+      </DataItem>
+    </Geometry>
+
+    <Attribute Name="DistFromStart" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="6579 1" NumberType="Float" Precision="4" >
+        GC12.dream3d:/DataContainers/VertexDataContainer/VertexData/DistFromStart
+      </DataItem>
+    </Attribute>
+    <Attribute Name="LastFreezeTime" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="6579 1" NumberType="Float" Precision="8" >
+        GC12.dream3d:/DataContainers/VertexDataContainer/VertexData/LastFreezeTime
+      </DataItem>
+    </Attribute>
+    <Attribute Name="LastMeltTime" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="6579 1" NumberType="Float" Precision="8" >
+        GC12.dream3d:/DataContainers/VertexDataContainer/VertexData/LastMeltTime
+      </DataItem>
+    </Attribute>
+    <Attribute Name="MeltVector" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="6579 1" NumberType="Int" Precision="4" >
+        GC12.dream3d:/DataContainers/VertexDataContainer/VertexData/MeltVector
+      </DataItem>
+    </Attribute>
+    <Attribute Name="VectorId" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="6579 1" NumberType="Int" Precision="4" >
+        GC12.dream3d:/DataContainers/VertexDataContainer/VertexData/VectorId
+      </DataItem>
+    </Attribute>
+  </Grid>
+  <!-- *************** END OF VertexDataContainer *************** -->
+  <!-- *************** START OF GlyphDC *************** -->
+  <Grid Name="GlyphDC" GridType="Uniform">
+    <Topology TopologyType="Polyvertex" NumberOfElements="180">
+      <DataItem Format="HDF" NumberType="Int" Dimensions="180">
+        GC12.dream3d:/DataContainers/GlyphDC/_SIMPL_GEOMETRY/Verts
+      </DataItem>
+    </Topology>
+    <Geometry Type="XYZ">
+      <DataItem Format="HDF"  Dimensions="180 3" NumberType="Float" Precision="4">
+        GC12.dream3d:/DataContainers/GlyphDC/_SIMPL_GEOMETRY/SharedVertexList
+      </DataItem>
+    </Geometry>
+
+    <Attribute Name="GlyphVectors" AttributeType="Vector" Center="Node">
+      <DataItem Format="HDF" Dimensions="180 3" NumberType="Float" Precision="4" >
+        GC12.dream3d:/DataContainers/GlyphDC/GlyphPoints/GlyphVectors
+      </DataItem>
+    </Attribute>
+  </Grid>
+  <!-- *************** END OF GlyphDC *************** -->
+ </Domain>
+</Xdmf>

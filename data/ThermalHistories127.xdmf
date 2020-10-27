@@ -1,0 +1,116 @@
+<?xml version="1.0"?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd"[]>
+<Xdmf xmlns:xi="http://www.w3.org/2003/XInclude" Version="2.2">
+ <Domain>
+  <!-- *************** START OF ScanDataContainer *************** -->
+  <Grid Name="ScanDataContainer" GridType="Uniform">
+    <Topology TopologyType="Polyline" NodesPerElement="2" NumberOfElements="32700">
+      <DataItem Format="HDF" NumberType="Int" Dimensions="32700 2">
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/_SIMPL_GEOMETRY/SharedEdgeList
+      </DataItem>
+    </Topology>
+    <Geometry Type="XYZ">
+      <DataItem Format="HDF"  Dimensions="63846 3" NumberType="Float" Precision="4">
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/_SIMPL_GEOMETRY/SharedVertexList
+      </DataItem>
+    </Geometry>
+
+    <Attribute Name="Mask" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="32700 1" NumberType="uchar" Precision="1" >
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/EdgeAttributeMatrix/Mask
+      </DataItem>
+    </Attribute>
+    <Attribute Name="SliceIds" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="32700 1" NumberType="Int" Precision="4" >
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/EdgeAttributeMatrix/SliceIds
+      </DataItem>
+    </Attribute>
+    <Attribute Name="power" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="32700 1" NumberType="Float" Precision="8" >
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/EdgeAttributeMatrix/power
+      </DataItem>
+    </Attribute>
+    <Attribute Name="powerFloat" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="32700 1" NumberType="Float" Precision="4" >
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/EdgeAttributeMatrix/powerFloat
+      </DataItem>
+    </Attribute>
+    <Attribute Name="velocity" AttributeType="Scalar" Center="Cell">
+      <DataItem Format="HDF" Dimensions="32700 1" NumberType="Float" Precision="8" >
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/EdgeAttributeMatrix/velocity
+      </DataItem>
+    </Attribute>
+    <Attribute Name="SliceIds" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="63846 1" NumberType="Int" Precision="4" >
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/VertexAttributeMatrix/SliceIds
+      </DataItem>
+    </Attribute>
+    <Attribute Name="time" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="63846 1" NumberType="Float" Precision="8" >
+        ThermalHistories127.dream3d:/DataContainers/ScanDataContainer/VertexAttributeMatrix/time
+      </DataItem>
+    </Attribute>
+  </Grid>
+  <!-- *************** END OF ScanDataContainer *************** -->
+  <!-- *************** START OF GlyphDC *************** -->
+  <Grid Name="GlyphDC" GridType="Uniform">
+    <Topology TopologyType="Polyvertex" NumberOfElements="32700">
+      <DataItem Format="HDF" NumberType="Int" Dimensions="32700">
+        ThermalHistories127.dream3d:/DataContainers/GlyphDC/_SIMPL_GEOMETRY/Verts
+      </DataItem>
+    </Topology>
+    <Geometry Type="XYZ">
+      <DataItem Format="HDF"  Dimensions="32700 3" NumberType="Float" Precision="4">
+        ThermalHistories127.dream3d:/DataContainers/GlyphDC/_SIMPL_GEOMETRY/SharedVertexList
+      </DataItem>
+    </Geometry>
+
+    <Attribute Name="GlyphVectors" AttributeType="Vector" Center="Node">
+      <DataItem Format="HDF" Dimensions="32700 3" NumberType="Float" Precision="4" >
+        ThermalHistories127.dream3d:/DataContainers/GlyphDC/GlyphPoints/GlyphVectors
+      </DataItem>
+    </Attribute>
+  </Grid>
+  <!-- *************** END OF GlyphDC *************** -->
+  <!-- *************** START OF CroppedDataContainer *************** -->
+  <Grid Name="CroppedDataContainer" GridType="Uniform">
+    <Topology TopologyType="Polyvertex" NumberOfElements="5055">
+      <DataItem Format="HDF" NumberType="Int" Dimensions="5055">
+        ThermalHistories127.dream3d:/DataContainers/CroppedDataContainer/_SIMPL_GEOMETRY/Verts
+      </DataItem>
+    </Topology>
+    <Geometry Type="XYZ">
+      <DataItem Format="HDF"  Dimensions="5055 3" NumberType="Float" Precision="4">
+        ThermalHistories127.dream3d:/DataContainers/CroppedDataContainer/_SIMPL_GEOMETRY/SharedVertexList
+      </DataItem>
+    </Geometry>
+
+    <Attribute Name="DistFromStart" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="5055 1" NumberType="Float" Precision="4" >
+        ThermalHistories127.dream3d:/DataContainers/CroppedDataContainer/VertexData/DistFromStart
+      </DataItem>
+    </Attribute>
+    <Attribute Name="LastFreezeTime" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="5055 1" NumberType="Float" Precision="8" >
+        ThermalHistories127.dream3d:/DataContainers/CroppedDataContainer/VertexData/LastFreezeTime
+      </DataItem>
+    </Attribute>
+    <Attribute Name="LastMeltTime" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="5055 1" NumberType="Float" Precision="8" >
+        ThermalHistories127.dream3d:/DataContainers/CroppedDataContainer/VertexData/LastMeltTime
+      </DataItem>
+    </Attribute>
+    <Attribute Name="MeltVector" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="5055 1" NumberType="Int" Precision="4" >
+        ThermalHistories127.dream3d:/DataContainers/CroppedDataContainer/VertexData/MeltVector
+      </DataItem>
+    </Attribute>
+    <Attribute Name="VectorId" AttributeType="Scalar" Center="Node">
+      <DataItem Format="HDF" Dimensions="5055 1" NumberType="Int" Precision="4" >
+        ThermalHistories127.dream3d:/DataContainers/CroppedDataContainer/VertexData/VectorId
+      </DataItem>
+    </Attribute>
+  </Grid>
+  <!-- *************** END OF CroppedDataContainer *************** -->
+ </Domain>
+</Xdmf>

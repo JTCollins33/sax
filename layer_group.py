@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import sklearn.cluster as cluster
+from nltk import cluster as clustern
 from sklearn_extra.cluster import KMedoids
 from sklearn.mixture import GaussianMixture
 import sklearn_extensions as ske
@@ -18,7 +19,8 @@ class LayerGroup:
     def __init__(self, layers, figs=None):
         self.layers = layers
         self.group_tsbm = self._gather_tsbm()
-        # self.group_dist = self._gather_dist()
+        # self.group_wavelets = self._gather_wavelets()
+        self.group_dist = self._gather_dist()
         self.kmeans_fit = None
         self.tsne_fit = None
         self.pca_fit = None
@@ -29,6 +31,12 @@ class LayerGroup:
         for l in self.layers[1:]:
             tsbm = np.concatenate((tsbm, l.tsbm), axis=0)
         return tsbm
+    
+    def _gather_wavelets(self):
+        wavelets = self.layers[0].wavelets
+        for l in self.layers[1:]:
+            wavelets = np.concatenate((wavelets, l.wavelets), axis=0)
+        return wavelets
 
     def _gather_dist(self):
         dist = self.layers[0].distance
@@ -105,6 +113,20 @@ class LayerGroup:
             d = pp.StandardScaler().fit_transform(d)
         self.kmeans_fit = cluster.KMeans(n_clusters=clusters).fit(d)
 
+    def kmeans_wt(self, clusters=5, standardize=True):
+        mask = np.all(self.group_wavelets == 0, axis=0)
+        d = self.group_wavelets[:, np.invert(mask)]
+        if standardize:
+            d = pp.StandardScaler().fit_transform(d)
+        self.kmeans_fit = cluster.KMeans(n_clusters=clusters).fit(d)
+
+    def kmeans_pca(self, clusters=5, standardize=True):
+        mask = np.all(self.group_tsbm == 0, axis=0)
+        d = self.group_tsbm[:, np.invert(mask)]
+        if standardize:
+            d = pp.StandardScaler().fit_transform(d)
+        self.pca_fit = cluster.KMeans(n_clusters=clusters).fit(d)
+
     def mean_shift(self, clusters=5, standardize=True):
         mask = np.all(self.group_tsbm == 0, axis=0)
         d = self.group_tsbm[:, np.invert(mask)]
@@ -127,7 +149,9 @@ class LayerGroup:
         d = self.group_tsbm[:, np.invert(mask)]
         if standardize:
             d = pp.StandardScaler().fit_transform(d)
-        self.kmeans_fit = GaussianMixture(n_components=clusters).fit(d).predict(d)
+        self.kmeans_fit = GaussianMixture(n_components=clusters).fit(d)
+        labels = self.kmeans_fit.predict(d)
+        self.kmeans_fit.labels_ = labels
 
     def dbscan(self, eps=0.5, min_samples=5, standardize=True):
         mask = np.all(self.group_tsbm == 0, axis=0)
@@ -151,7 +175,7 @@ class LayerGroup:
         fcm = FCM(n_clusters=clusters)
         self.kmeans_fit = fcm.fit(d)
         self.kmeans_fit.cluster_centers_ = fcm.centers
-        self.kmeans_fit.labels_=fcm.u.argmax(axis=1)
+        self.kmeans_fit.labels_=fcm.u
 
     def agglomerative(self, clusters=5, standardize=True):
         mask = np.all(self.group_tsbm == 0, axis=0)
@@ -190,7 +214,7 @@ class LayerGroup:
         plt.colorbar()
         plt.show()
 
-    def plot_pca(self):
+    def plot_pca(self, num):
         plt.clf()
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -198,14 +222,16 @@ class LayerGroup:
             ax.spines[axis].set_linewidth(2)
         ax.tick_params(width=2, labelsize='large')
         plt.axes().set_aspect('equal', 'datalim')
-        plt.scatter(self.pca_fit[:, 0], self.pca_fit[:, 1], c=self.group_dist, cmap='rainbow', s=1)
+        plt.scatter(self.pca_fit[:, 0], self.pca_fit[:, 1], c=self.group_dist[:,0], cmap='rainbow', s=1)
         cbar = plt.colorbar()
         cbar.set_label('Distance from Vector Start (mm)', fontsize='large', fontweight='bold', rotation=270,
                        labelpad=15)
         plt.ylabel('Principal Component 2', fontsize='large', fontweight='bold')
         plt.xlabel('Principal Component 1', fontsize='large', fontweight='bold')
-        name = 'pca' + '.png'
+        name = 'pca_' +str(num) + '.png'
         plt.savefig(self.figs + name, bbox_inches='tight', dpi=1200)
+        # for l in self.layers:
+        #     l.plot_pca(max_clusters=4)
 
     def plot_gap_statistic(self, gapdf, k):
         plt.clf()
@@ -261,3 +287,33 @@ class LayerGroup:
 
         for l in self.layers:
             l.plot_kmeans(max_clusters)
+
+    def plot_kmeans_wt(self, max_clusters=None):
+        ind = 0
+        for l in self.layers:
+            dist = len(l.wavelets)
+            start = ind
+            end = ind + dist
+            l.kmeans_labels = self.kmeans_fit.labels_[start:end]
+            ind += dist
+
+        if max_clusters is None:
+            max_clusters = np.amax(self.kmeans_fit.labels_)
+
+        for l in self.layers:
+            l.plot_kmeans(max_clusters)
+
+    def plot_fuzzy_kmeans(self, max_clusters=None):
+        ind = 0
+        for l in self.layers:
+            dist = len(l.tsbm)
+            start = ind
+            end = ind + dist
+            l.kmeans_labels = self.kmeans_fit.labels_[start:end]
+            ind += dist
+
+        if max_clusters is None:
+            max_clusters = np.amax(self.kmeans_fit.labels_)
+
+        for l in self.layers:
+            l.plot_fuzzy_kmeans(max_clusters=max_clusters)

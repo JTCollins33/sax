@@ -39,12 +39,7 @@ def get_ths(hdf5_file, figs = None):
     file.close()
     return ths
 
-
-#this method converts a group of thermal histories to a layer
-def ths_to_layer(ths, figs, hdf5_file, index):
-    ths_pos = []
-
-
+def get_layer_features(ths, figs, hdf5_file, index):
     #get dream3d file to read positions
     if (hdf5_file.find('_')!=-1):
         strs = hdf5_file.split('_')
@@ -70,30 +65,21 @@ def ths_to_layer(ths, figs, hdf5_file, index):
     layer = Layer(ths, points, index=index, figs=fpath)
     layer.distance = dist
     layer.vector = vector
-    layer.tsbm = tsbm
 
-    #compute sax and tsbm for layer
-    layer.compute_sax()
-    layer.compute_tsbm_ivt()
-
-    #OR compute pca
-    layer.pca()
-    # layer.tsne()
+    #set decision tree features
+    layer.get_dt_features()
 
     d3d_file.close()
 
     return layer
-    
 
 #this method finds the index of the current file
 def find_index(file):
     return int(re.findall(r'\d+', file.split('.')[0])[0])
 
-
-
 if __name__ == "__main__":
     dir_path = "./data/"
-    fpath = "./data/featurization_figs/pca/"
+    fpath = "./data/featurization_figs/decision_trees/num_peaks_peak_dist_and_max/"
     layers = []
     cnt = 0
     for file in os.listdir(dir_path):
@@ -101,32 +87,12 @@ if __name__ == "__main__":
         if file.endswith(".hdf5") and not file.endswith("_2.hdf5"):
             ths = get_ths(dir_path+file)
             index = find_index(file)
-            layer = ths_to_layer(ths, fpath, dir_path+file, index)
 
-            #add to list for layer group        
-            layers.append(layer)
+            layer = get_layer_features(ths, fpath, dir_path+file, index)
 
-            lg = LayerGroup(layers, fpath)
-            lg.pca(comps=4, standardize=True)
-            lg.plot_pca(num=find_index(file))
+            #perform agglomerative clustering
+            layer.agglomerative_clustering()
+
+            layer.plot_dt(max_clusters=4)
 
             cnt+=1
-
-    # lg = LayerGroup(layers, fpath)
-
-    #apply clustering technique
-    # lg.mean_shift(clusters=4, standardize=True)
-    # lg.EM(clusters=4, standardize=True)
-    # lg.fuzzy_kmeans(clusters=4, standardize=True)
-    # lg.agglomerative(clusters=4, standardize=True)
-    # lg.kmeans(clusters=4, standardize=True)
-    # lg.pca(comps=4, standardize=True)
-    # lg.kmedoids(clusters=4, standardize=True)
-    # lg.tsne()
-
-    #plot results
-    # lg.plot_pca()
-    # lg.plot_tsne()
-    # lg.plot_kmeans(max_clusters = 4)
-    # lg.plot_fuzzy_kmeans(max_clusters=4)
-        

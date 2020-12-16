@@ -1,14 +1,11 @@
-import h5py
-import matplotlib.pyplot as plt
-import numpy as np
 import os
+import h5py
 import re
+import numpy as np
+from thermal_history import ThermalHistory
 from layer import Layer
 from layer_group import LayerGroup
-from mpl_toolkits.mplot3d import Axes3D
-from thermal_history import ThermalHistory
-from scipy.interpolate import make_interp_spline, BSpline
-import math
+
 
 
 THERMAL_HISTORY_GROUP_NAME = '/ThermalHistories'
@@ -40,11 +37,7 @@ def get_ths(hdf5_file, figs = None):
     return ths
 
 
-#this method converts a group of thermal histories to a layer
-def ths_to_layer(ths, figs, hdf5_file, index):
-    ths_pos = []
-
-
+def get_layer(ths, fpath, hdf5_file, index):
     #get dream3d file to read positions
     if (hdf5_file.find('_')!=-1):
         strs = hdf5_file.split('_')
@@ -70,63 +63,46 @@ def ths_to_layer(ths, figs, hdf5_file, index):
     layer = Layer(ths, points, index=index, figs=fpath)
     layer.distance = dist
     layer.vector = vector
-    layer.tsbm = tsbm
-
-    #compute sax and tsbm for layer
-    layer.compute_sax()
-    layer.compute_tsbm_ivt()
-
-    #OR compute pca
-    layer.pca()
-    # layer.tsne()
 
     d3d_file.close()
 
     return layer
-    
 
 #this method finds the index of the current file
 def find_index(file):
     return int(re.findall(r'\d+', file.split('.')[0])[0])
 
 
+def resize_layers(layers):
+    #find length of smallest curve
+    min = len(layers[0].curves[0].curve)
+    for layer in layers:
+        for th in layer.curves:
+            if len(th.curve) < min:
+                min = len(th.curve)
 
-if __name__ == "__main__":
-    dir_path = "./data/"
-    fpath = "./data/featurization_figs/pca/"
+    #quick resizing option
+    #CHANGE FOR LATER
+    for layer in layers:
+        for th in layer.curves:
+            th.reduce_size_to_min(min)
+    return layers
+
+
+def get_layers(dir_path, fpath, resize=False):
     layers = []
     cnt = 0
     for file in os.listdir(dir_path):
-        layers=[]
         if file.endswith(".hdf5") and not file.endswith("_2.hdf5"):
             ths = get_ths(dir_path+file)
             index = find_index(file)
-            layer = ths_to_layer(ths, fpath, dir_path+file, index)
 
-            #add to list for layer group        
+            layer = get_layer(ths, fpath, dir_path+file, index)
+
             layers.append(layer)
-
-            lg = LayerGroup(layers, fpath)
-            lg.pca(comps=4, standardize=True)
-            lg.plot_pca(num=find_index(file))
-
             cnt+=1
 
-    # lg = LayerGroup(layers, fpath)
+    if(resize):
+        layers = resize_layers(layers)
 
-    #apply clustering technique
-    # lg.mean_shift(clusters=4, standardize=True)
-    # lg.EM(clusters=4, standardize=True)
-    # lg.fuzzy_kmeans(clusters=4, standardize=True)
-    # lg.agglomerative(clusters=4, standardize=True)
-    # lg.kmeans(clusters=4, standardize=True)
-    # lg.pca(comps=4, standardize=True)
-    # lg.kmedoids(clusters=4, standardize=True)
-    # lg.tsne()
-
-    #plot results
-    # lg.plot_pca()
-    # lg.plot_tsne()
-    # lg.plot_kmeans(max_clusters = 4)
-    # lg.plot_fuzzy_kmeans(max_clusters=4)
-        
+    return layers

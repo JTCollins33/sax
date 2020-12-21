@@ -9,28 +9,31 @@ import os
 import random
 import matplotlib.pyplot as plt
 from AE import Autoencoder
-from layers_gather import get_layers
+from layers_gather import get_layers, get_validation_layers
 from layer import Layer
 from AE_test import test
 
 
 dir_path = "./data/"
-fpath = "./data/featurization_figs/AE/8_features/"
+fpath = "./data/featurization_figs/AE/10_features/test_length/"
 loss_plots_path = "./loss_plots/"
-n_epochs = 50
+n_epochs = 1000
 learning_rate = 0.001
-TEST = False
+ngpu = 1
+TEST = True
 
 if __name__ == '__main__':
     #setup data
     layers = get_layers(dir_path, fpath, resize=True)
     curve_size = len(layers[0].curves[0].curve)
 
+    validation_layers = get_validation_layers(dir_path, fpath, resize=True)
+
     # Decide which device we want to run on
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
     #setup model
-    AE = Autoencoder().to(device)
+    AE = Autoencoder(ngpu).to(device)
 
     #setup loss function
     lossF = nn.MSELoss()
@@ -41,6 +44,7 @@ if __name__ == '__main__':
 
     indices = []
     losses = []
+    validation_losses = []
     epochs = []
     for i in range(len(layers)):
         indices.append(i)
@@ -74,6 +78,24 @@ if __name__ == '__main__':
             epochs.append(epoch)
 
         print("Epoch: "+str(epoch)+", Loss: "+str(float(loss)))
+
+        #check overfitting
+        if(epoch%5==0):
+            val_layer = []
+            for th in validation_layers[0].curves:
+                max = np.amax(th.curve)
+                val_layer.append((th.curve)/(1.0*max))
+
+            val_layer = torch.reshape(torch.tensor(val_layer), (len(val_layer), 1, curve_size))
+            generated_val_layer = AE(val_layer)
+            validation_losses.append(float(lossF(generated_val_layer, val_layer)))
+
+            n_val_losses = len(validation_losses)
+            if (n_val_losses>1):
+                #if model starts to overfit, save model and exit training
+                if (validation_losses[n_val_losses-1] > validation_losses[n_val_losses-2]):
+                    torch.save(AE, "./model_progress/AE_model_"+str(epoch)+"_epochs.pth")
+                    epoch = n_epochs
 
         # save training progress every 10 epochs
         if(epoch%10==0 or epoch==n_epochs):

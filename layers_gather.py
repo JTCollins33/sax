@@ -86,6 +86,7 @@ def resize_layers(layers):
     for layer in layers:
         for th in layer.curves:
             th.reduce_size_to_min(min)
+            # th.shrink_around_max(min)
     return layers
 
 
@@ -94,6 +95,24 @@ def get_layers(dir_path, fpath, resize=False):
     cnt = 0
     for file in os.listdir(dir_path):
         if file.endswith(".hdf5") and not file.endswith("_2.hdf5"):
+            ths = get_ths(dir_path+file)
+            index = find_index(file)
+
+            layer = get_layer(ths, fpath, dir_path+file, index)
+
+            layers.append(layer)
+            cnt+=1
+
+    if(resize):
+        layers = resize_layers(layers)
+
+    return layers
+
+def get_validation_layers(dir_path, fpath, resize=False):
+    layers = []
+    cnt = 0
+    for file in os.listdir(dir_path):
+        if file.endswith("_2.hdf5"):
             ths = get_ths(dir_path+file)
             index = find_index(file)
 

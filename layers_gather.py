@@ -74,19 +74,23 @@ def find_index(file):
 
 
 def resize_layers(layers):
-    #find length of smallest curve
-    min = len(layers[0].curves[0].curve)
-    for layer in layers:
-        for th in layer.curves:
-            if len(th.curve) < min:
-                min = len(th.curve)
+    # #find length of smallest curve
+    # min = len(layers[0].curves[0].curve)
+    # for layer in layers:
+    #     for th in layer.curves:
+    #         if len(th.curve) < min:
+    #             min = len(th.curve)
+
+    #manually set size for now 
+    min = 33
 
     #quick resizing option
     #CHANGE FOR LATER
     for layer in layers:
         for th in layer.curves:
-            th.reduce_size_to_min(min)
+            # th.reduce_size_to_min(min)
             # th.shrink_around_max(min)
+            th.fit_to_size(min)
     return layers
 
 
@@ -94,7 +98,7 @@ def get_layers(dir_path, fpath, resize=False):
     layers = []
     cnt = 0
     for file in os.listdir(dir_path):
-        if file.endswith(".hdf5") and not file.endswith("_2.hdf5"):
+        if file.endswith(".hdf5") and not file.endswith("_2.hdf5") and cnt < 1:
             ths = get_ths(dir_path+file)
             index = find_index(file)
 

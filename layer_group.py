@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 import sklearn.cluster as cluster
 from nltk import cluster as clustern
-from sklearn_extra.cluster import KMedoids
+# from sklearn_extra.cluster import KMedoids
 from sklearn.mixture import GaussianMixture
-import sklearn_extensions as ske
-from fcmeans import FCM
+# import sklearn_extensions as ske
+# from fcmeans import FCM
 import sklearn.decomposition as decomp
 import sklearn.manifold as man
 import sklearn.preprocessing as pp

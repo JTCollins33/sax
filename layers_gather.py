@@ -98,7 +98,7 @@ def get_layers(dir_path, fpath, resize=False):
     layers = []
     cnt = 0
     for file in os.listdir(dir_path):
-        if file.endswith(".hdf5") and not file.endswith("_2.hdf5") and cnt < 1:
+        if file.endswith(".hdf5") and not file.endswith("_2.hdf5"):
             ths = get_ths(dir_path+file)
             index = find_index(file)
 

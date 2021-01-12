@@ -1,12 +1,25 @@
 import tensorflow as tf
+from tensorflow.keras.layers import LSTM, Embedding, RepeatVector, Dense
+from tensorflow.keras.optimizers import Adam, RMSprop
 from keras import backend as K
+from keras.models import load_model
+import matplotlib.pyplot as plt
+import os
 import numpy as np
 from layers_gather import get_layers, get_validation_layers
 from layer import Layer
+import random
 
 
 dir_path = "./data/"
-fpath = "./data/featurization_figs/AE/9_features/th_size_33/"
+fpath = "./data/featurization_figs/RAE/"
+models_path = "./keras_model_progress/"
+N_CLUSTERS=4
+num_epochs=10
+save_freq = 10
+lr = 0.001
+training=True
+testing=False
 
 
 # def build_keras_RNN_model(max_val):
@@ -19,53 +32,162 @@ fpath = "./data/featurization_figs/AE/9_features/th_size_33/"
 #     model = tf.keras.Model(inputs=embedding_input, outputs = dense_output)
 #     return model
 
-def build_keras_RNN_model_2(max_length):
-    mask_input = tf.keras.Input((None, 1))
-    masked_output = tf.keras.layers.Masking(mask_value=0.)(mask_input)
-    lstm_1_output = tf.keras.layers.LSTM(10, activation='relu')(masked_output)
-    repeat_vector_output = tf.keras.layers.RepeatVector(K.shape(mask_input)[1])(lstm_1_output)
-    lstm_2_output = tf.keras.layers.LSTM(100, activation='relu', return_sequences=True)(repeat_vector_output)
-    dense_output = tf.keras.layers.Dense(1)(lstm_2_output)
 
-    model = tf.keras.Model(inputs=mask_input, outputs=dense_output)
+#perform agglomerative clustering
+def dt(layer):
+    print("Performing clustering....\n")
+    layer.agglomerative_clustering(n_clusters=N_CLUSTERS)
+
+    print("Plotting results....\n")
+    layer.plot_dt(max_clusters=N_CLUSTERS)
+
+
+    layer.dt_features = np.array(layer.dt_features)
+    print("Calculating cluster probabilities....\n")
+    layer.fuzzy_kmeans_AE(clusters=N_CLUSTERS, standardize=True)
+
+
+    print("Plotting frequency graphs....\n")
+    layer.plot_kmeans_freqs(fpath+"kmeans_frequencies/")
+
+
+def build_keras_RNN_model_2(max_val, test=False):
+    mask_input = tf.keras.Input((None, ))
+    # masked_output = tf.keras.layers.Masking(mask_value=0.)(mask_input)
+    masked_output = Embedding(input_dim=max_val+1, output_dim=5, mask_zero=True, name='embedding_layer')(mask_input)
+    # masked_output = Embedding(input_dim=max_val+1, output_dim=5)(mask_input)
+    # masked_output = tf.squeeze(masked_output, 2)
+    lstm_1_output = LSTM(5, activation='relu', name='encoder_output')(masked_output)
+    repeat_vector_output = RepeatVector(K.shape(mask_input)[1], name='repeat_vector_layer')(lstm_1_output)
+    lstm_2_output = LSTM(25, activation='relu', return_sequences=True, name='lstm2_output')(repeat_vector_output)
+    dense_output = Dense(1, name='decoder_output')(lstm_2_output)
+
+    if test:
+        model = tf.keras.Model(inputs=mask_input, outputs=[lstm_1_output, dense_output])
+    else:
+        model = tf.keras.Model(inputs=mask_input, outputs=dense_output)
     return model
 
 
-def stack_tensors(list):
-    values = tf.concat(list, axis=0)
-    lens = tf.stack([tf.shape(t, out_type=tf.int64)[0] for t in list])
-    return tf.RaggedTensor.from_row_lengths(values, lens)
+def prepare_dataset(layers):
+    all_layers=[]
+    max_lengths = [0]*len(layers)
+    max_vals = [0]*len(layers)
 
+    for i in range(len(layers)):
+        for th in layers[i].curves:
+            if(np.amax(th.curve)>max_vals[i]):
+                max_vals[i]=np.amax(th.curve)
+            if(len(th.curve)>max_lengths[i]):
+                max_lengths[i]=len(th.curve)
+
+    
+    print("Formatting dataset....\n")
+    for i in range(len(layers)):
+        layer_list = []
+        for th in layers[i].curves:            
+            curve_max = np.amax(th.curve)
+            zeros = np.zeros(max_lengths[i]-len(th.curve), dtype=th.curve.dtype)
+            padded_arr = np.append(th.curve, zeros)
+            normalized_arr = np.divide(padded_arr, 1.0*curve_max)
+            # layer_list.append(np.reshape(normalized_arr, (len(normalized_arr), 1)))
+            layer_list.append(normalized_arr)
+        all_layers.append(np.array(layer_list))
+    
+    return all_layers, int(max(max_vals))
+
+
+def loss_function(model, criterion, input):
+    output = model(input)[:,:,0]
+    loss_val = criterion(input, input)
+    return loss_val
+
+def grad(input, criterion, model):
+    input = tf.convert_to_tensor(input)
+    with tf.GradientTape() as tape:
+        loss_value = loss_function(model, criterion, input)
+    gradient = tape.gradient(loss_value, model.trainable_variables)
+    gradient2 = [grad if grad is not None else tf.zeros_like(var) for var, grad in zip(model.trainable_variables, gradient)]
+    return loss_value, gradient2
+
+def plot_losses(losses):
+    plt.plot(losses)
+    plt.savefig(fpath+"loss_plot_"+str(num_epochs)+"_epochs.png")
+
+
+#find most recent model
+def get_newest_model():
+    files = os.listdir(models_path)
+    paths = [os.path.join(models_path, basename) for basename in files]
+    return max(paths, key=os.path.getctime)
 
 if __name__ == "__main__":
     #get layer
-    layer = get_layers(dir_path, fpath, resize=False)
+    layers = get_layers(dir_path, fpath, resize=False)
 
-    layer_list = []
-    max_val = 0
-    max_length = 0
+    indices = []
+    for i in range(len(layers)):
+        indices.append(i)
 
-    for th in layer[0].curves:
-        if np.amax(th.curve)>max_val:
-            max_val = int(np.amax(th.curve))
-        if len(th.curve) > max_length:
-            max_length = len(th.curve)
-
-    for th in layer[0].curves:
-        zeros = np.zeros(max_length-len(th.curve), dtype = th.curve.dtype)
-        padded_arr = np.append(th.curve, zeros)
-        layer_list.append(np.reshape(padded_arr, (len(padded_arr), 1)))
-        # curve_tensor = tf.convert_to_tensor(th.curve, dtype = th.curve.dtype)
-        # layer_list.append(tf.reshape(curve_tensor, (curve_tensor.shape[0], 1)))
-        # layer_list.append(curve_tensor)
-
-    # ragged_tensor = stack_tensors(layer_list)
+    print("Preparing dataset....\n")
+    all_layers, max_val = prepare_dataset(layers)
 
 
-    layer_array = np.array(layer_list)
-    # layer_array = tf.convert_to_tensor(layer_list)
-    model = build_keras_RNN_model_2(max_length)
+    model = build_keras_RNN_model_2(max_val, test=False)
     model.summary()
+    optim = RMSprop(learning_rate=lr, clipnorm=5)
+    model.compile(optimizer=optim, loss='mse')
+    # criterion = tf.keras.losses.MeanSquaredError(reduction="sum")
+    # optimizer = tf.keras.optimizers.RMSprop(learning_rate=0.001)
+    losses = []
 
-    model.compile(optimizer='adam', loss='mse')
-    model.fit(layer_array, layer_array, epochs=2, verbose=2)
+    # model.compile(optimizer=optimizer, loss=criterion)
+
+
+    if(training):
+        for epoch in range(1, num_epochs+1):
+            random.shuffle(indices)
+            epoch_total_loss = 0.0
+            epoch_sum_loss = 0.0
+            for i in indices:
+                print("\nLayer "+str(i)+"\n")
+                layer = all_layers[i]
+                output_layer = layer.reshape(layer.shape[0], layer.shape[1], 1)
+
+                history1 = model.fit(layer, output_layer, epochs=1, verbose=2)
+
+                epoch_sum_loss += history1.history['loss'][0]
+
+            #     loss, grads = grad(layer, criterion, model)
+
+            #     optimizer.apply_gradients(zip(grads, model.trainable_variables))
+
+            #     epoch_total_loss += loss
+
+            # epoch_avg_loss = epoch_total_loss/(1.0*len(indices))
+            # losses.append(epoch_avg_loss)
+            epoch_total_loss = epoch_sum_loss/(1.0*len(indices))
+            losses.append(epoch_total_loss)
+
+            print("Epoch "+str(epoch)+"/"+str(num_epochs)+"\tLoss: "+str(epoch_total_loss)+"\n")
+
+            #save weights every save_freq epochs
+            if (epoch%save_freq==0 or epoch==num_epochs):
+                print("Saving model...\n")
+                model.save_weights(models_path+"weights_"+str(epoch)+".hdf5")
+
+        plot_losses(losses)
+
+
+    if(testing):
+        model = build_keras_RNN_model_2(max_val, test=True)
+        model.load_weights(get_newest_model())
+
+        for i in range(len(layers)):
+            features = model(all_layers[i])[0]
+            layers[i].set_dt_features(features)
+
+            dt(layers[i])
+
+
+    # output = model.predict(layer_array, verbose=2)

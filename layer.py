@@ -5,7 +5,7 @@ import operator
 import os
 import sklearn.cluster as cluster
 from sklearn.mixture import GaussianMixture
-from sklearn_extra.cluster import KMedoids
+# from sklearn_extra.cluster import KMedoids
 from sklearn.cluster import AgglomerativeClustering
 import sklearn.decomposition as decomp
 import sklearn.manifold as man

@@ -2,24 +2,27 @@ import tensorflow as tf
 from tensorflow.keras.layers import LSTM, Embedding, RepeatVector, Dense
 from tensorflow.keras.optimizers import Adam, RMSprop
 from keras import backend as K
+# import tensorflow.keras.backend as K
 from keras.models import load_model
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import time
 from layers_gather import get_layers, get_validation_layers
 from layer import Layer
 import random
 
 
 dir_path = "./data/"
-fpath = "./data/featurization_figs/RAE/"
+fpath = "./data/featurization_figs/RAE/pad_batches/"
 models_path = "./keras_model_progress/"
 N_CLUSTERS=4
-num_epochs=10
-save_freq = 10
+num_epochs=20
+save_freq=2
+batch_size=15
 lr = 0.001
-training=True
-testing=False
+training=False
+testing=True
 
 
 # def build_keras_RNN_model(max_val):
@@ -60,7 +63,7 @@ def build_keras_RNN_model_2(max_val, test=False):
     lstm_1_output = LSTM(5, activation='relu', name='encoder_output')(masked_output)
     repeat_vector_output = RepeatVector(K.shape(mask_input)[1], name='repeat_vector_layer')(lstm_1_output)
     lstm_2_output = LSTM(25, activation='relu', return_sequences=True, name='lstm2_output')(repeat_vector_output)
-    dense_output = Dense(1, name='decoder_output')(lstm_2_output)
+    dense_output = Dense(1, name='decoder_output', activation='softmax')(lstm_2_output)
 
     if test:
         model = tf.keras.Model(inputs=mask_input, outputs=[lstm_1_output, dense_output])
@@ -69,18 +72,24 @@ def build_keras_RNN_model_2(max_val, test=False):
     return model
 
 
-def prepare_dataset(layers):
-    all_layers=[]
-    max_lengths = [0]*len(layers)
+def get_max(layers):
+
     max_vals = [0]*len(layers)
 
     for i in range(len(layers)):
         for th in layers[i].curves:
             if(np.amax(th.curve)>max_vals[i]):
                 max_vals[i]=np.amax(th.curve)
-            if(len(th.curve)>max_lengths[i]):
-                max_lengths[i]=len(th.curve)
 
+    return int(max(max_vals))
+
+
+
+def prepare_dataset(layers):
+    all_layers=[]
+    max_lengths = [0]*len(layers)
+    
+    max_val = get_max(layers)
     
     print("Formatting dataset....\n")
     for i in range(len(layers)):
@@ -94,7 +103,7 @@ def prepare_dataset(layers):
             layer_list.append(normalized_arr)
         all_layers.append(np.array(layer_list))
     
-    return all_layers, int(max(max_vals))
+    return all_layers, max_val
 
 
 def loss_function(model, criterion, input):
@@ -130,13 +139,16 @@ if __name__ == "__main__":
         indices.append(i)
 
     print("Preparing dataset....\n")
-    all_layers, max_val = prepare_dataset(layers)
+    # all_layers, max_val = prepare_dataset(layers)
+    max_val = get_max(layers)
 
 
-    model = build_keras_RNN_model_2(max_val, test=False)
-    model.summary()
-    optim = RMSprop(learning_rate=lr, clipnorm=5)
-    model.compile(optimizer=optim, loss='mse')
+    # model = build_keras_RNN_model_2(max_val, test=False)
+    # model.summary()
+    # optim = RMSprop(learning_rate=lr, clipnorm=3)
+    # model.compile(optimizer=optim, loss='mse')
+    # model.load_weights(get_newest_model())
+    
     # criterion = tf.keras.losses.MeanSquaredError(reduction="sum")
     # optimizer = tf.keras.optimizers.RMSprop(learning_rate=0.001)
     losses = []
@@ -145,18 +157,53 @@ if __name__ == "__main__":
 
 
     if(training):
-        for epoch in range(1, num_epochs+1):
+        for epoch in range(11, num_epochs+1):
             random.shuffle(indices)
             epoch_total_loss = 0.0
             epoch_sum_loss = 0.0
             for i in indices:
-                print("\nLayer "+str(i)+"\n")
-                layer = all_layers[i]
-                output_layer = layer.reshape(layer.shape[0], layer.shape[1], 1)
+                # print("\nLayer "+str(i)+"\n")
+                layer = layers[i]
+                batch_base=0
+                layer_loss_sum=0.0
 
-                history1 = model.fit(layer, output_layer, epochs=1, verbose=2)
+                start_time = time.time()
+                done = False
+                #create batch for testing
+                while(not(done)):
+                    while(batch_base+batch_size>=len(layer.curves)):
+                        batch_base-=1
+                        done=True
 
-                epoch_sum_loss += history1.history['loss'][0]
+                    ths_batch = layer.curves[batch_base:batch_base+batch_size]
+                    batch_list = []
+                    max_length = 0
+                    for th in ths_batch:
+                        if (len(th.curve)>max_length):
+                            max_length = len(th.curve)
+                    for th in ths_batch:
+                        curve_max = np.amax(th.curve)
+                        zeros = np.zeros(max_length-len(th.curve), dtype=th.curve.dtype)
+                        padded_arr = np.append(th.curve, zeros)
+                        normalized_arr = np.divide(padded_arr, 1.0*curve_max)
+                        batch_list.append(normalized_arr)
+                    batch = np.array(batch_list)
+
+                    output_batch = batch.reshape(batch.shape[0], batch.shape[1], 1)
+
+                    history1 = model.fit(batch, output_batch, epochs=1, verbose=0)
+
+                    layer_loss_sum += history1.history['loss'][0]
+                    batch_base+=batch_size
+                    print("Layer "+str(i)+": Batch "+str(batch_base)+"-"+str(batch_base+batch_size)+"/"+str(len(layer.curves))+"\tLoss: "+str(history1.history['loss'][0])+"\n")
+
+                layer_loss = layer_loss_sum/(1.0*len(layer.curves))
+
+                print("Layer "+str(i)+"\tLoss: "+str(layer_loss)+"\tTime: "+str(time.time()-start_time)+" seconds\n")
+                
+                epoch_sum_loss += layer_loss
+                # output_layer = layer.reshape(layer.shape[0], layer.shape[1], 1)
+                # history1 = model.fit(layer, output_layer, epochs=1, verbose=2)
 
             #     loss, grads = grad(layer, criterion, model)
 
@@ -184,8 +231,62 @@ if __name__ == "__main__":
         model.load_weights(get_newest_model())
 
         for i in range(len(layers)):
-            features = model(all_layers[i])[0]
-            layers[i].set_dt_features(features)
+            layer = layers[i]
+            layer_list = []
+
+            layer_features = []
+            done = False
+            batch_base = 0
+            while(not(done) and batch_base<len(layer.curves)):
+                start = batch_base
+                end=batch_base+batch_size
+
+                while(end>len(layer.curves)):
+                    end-=1
+                    done=True
+
+                ths_batch = layer.curves[start:end]
+
+                batch_list = []
+                max_length = 0
+                for th in ths_batch:
+                    if (len(th.curve)>max_length):
+                        max_length = len(th.curve)
+
+                for th in ths_batch:
+                    curve_max = np.amax(th.curve)
+                    zeros = np.zeros(max_length-len(th.curve), dtype=th.curve.dtype)
+                    padded_arr = np.append(th.curve, zeros)
+                    normalized_arr = np.divide(padded_arr, 1.0*curve_max)
+                    batch_list.append(normalized_arr)
+                
+                batch = np.array(batch_list)
+
+                batch_features = model.predict(batch)[0]
+
+                for j in range(batch_features.shape[0]):
+                    layer_features.append(batch_features[j])
+
+                batch_base += batch_size
+
+            # #find max length curve
+            # max_length=0
+            # for th in layer.curves:
+            #     if(len(th.curve)>max_length):
+            #         max_length = len(th.curve)
+
+            # #normalize each curve so same length
+            # for th in layer.curves:
+            #     curve_max = np.amax(th.curve)
+            #     zeros = np.zeros(max_length-len(th.curve), dtype=th.curve.dtype)
+            #     padded_arr = np.append(th.curve, zeros)
+            #     normalized_arr = np.divide(padded_arr, 1.0*curve_max)
+            #     layer_list.append(normalized_arr)
+
+            # layer_arr = np.array(layer_list)
+            # # layer_tensor = K.constant(layr_arr)
+            # features = model.predict(layer_arr)[0]
+            layers[i].set_dt_features(layer_features)
 
             dt(layers[i])
 

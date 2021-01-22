@@ -13,7 +13,7 @@ import random
 
 
 dir_path = "./data/"
-fpath = "./data/featurization_figs/RAE/new/"
+fpath = "./LSTM_results/"
 models_path = "./keras_model_progress/"
 N_CLUSTERS=4
 num_epochs=1000

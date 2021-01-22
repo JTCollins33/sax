@@ -1,8 +1,7 @@
 import tensorflow as tf
-from tensorflow.keras.layers import LSTM, Embedding, RepeatVector, Dense
+from tensorflow.keras.layers import LSTM, Embedding, RepeatVector, Dense, Masking
 from tensorflow.keras.optimizers import Adam, RMSprop
 from keras import backend as K
-# import tensorflow.keras.backend as K
 from keras.models import load_model
 import matplotlib.pyplot as plt
 import os
@@ -14,26 +13,16 @@ import random
 
 
 dir_path = "./data/"
-fpath = "./data/featurization_figs/RAE/pad_batches/"
+fpath = "./data/featurization_figs/RAE/new/"
 models_path = "./keras_model_progress/"
 N_CLUSTERS=4
-num_epochs=20
+num_epochs=10
 save_freq=2
 batch_size=15
 lr = 0.001
-training=False
+training=True
 testing=True
 
-
-# def build_keras_RNN_model(max_val):
-#     embedding_input = tf.keras.Input((None, ))
-#     input_shape = embedding_input.shape
-#     embedding_sequence = tf.keras.layers.Embedding(input_dim=max_val+1, output_dim=20, mask_zero=True)(embedding_input)
-#     lstm_output = tf.keras.layers.LSTM(100, activation="relu")(embedding_sequence)
-#     dense_output = tf.keras.layers.Dense(10)(lstm_output)
-
-#     model = tf.keras.Model(inputs=embedding_input, outputs = dense_output)
-#     return model
 
 
 #perform agglomerative clustering
@@ -54,28 +43,40 @@ def dt(layer):
     layer.plot_kmeans_freqs(fpath+"kmeans_frequencies/")
 
 
-def build_keras_RNN_model_2(max_val, test=False):
+def build_keras_RNN_model(max_val, test=False):
     mask_input = tf.keras.Input((None, ))
-    # masked_output = tf.keras.layers.Masking(mask_value=0.)(mask_input)
     masked_output = Embedding(input_dim=max_val+1, output_dim=5, mask_zero=True, name='embedding_layer')(mask_input)
-    # masked_output = Embedding(input_dim=max_val+1, output_dim=5)(mask_input)
-    # masked_output = tf.squeeze(masked_output, 2)
     lstm_1_output = LSTM(5, activation='relu', name='encoder_output')(masked_output)
     repeat_vector_output = RepeatVector(K.shape(mask_input)[1], name='repeat_vector_layer')(lstm_1_output)
     lstm_2_output = LSTM(25, activation='relu', return_sequences=True, name='lstm2_output')(repeat_vector_output)
     dense_output = Dense(1, name='decoder_output', activation='softmax')(lstm_2_output)
 
+    #make model output intermediate layer if testing (to get features)
     if test:
         model = tf.keras.Model(inputs=mask_input, outputs=[lstm_1_output, dense_output])
     else:
         model = tf.keras.Model(inputs=mask_input, outputs=dense_output)
     return model
 
+def build_test_model(test=False):
+    input = tf.keras.Input((None, 1))
+    mask = Masking(mask_value=0.)(input)
+    features = LSTM(7, activation='relu', name='encoder_output')(mask)
+    repeat_vector_output = RepeatVector(K.shape(input)[1], name='repeat_vector_layer')(features)
+    lstm_2_output = LSTM(28, activation='relu', return_sequences=True, name='lstm2_output')(repeat_vector_output)
+    dense_output = Dense(1, name='decoder_output', activation='softmax')(lstm_2_output)
+
+    if(test):
+        model = tf.keras.Model(inputs=input, outputs=[features, dense_output])
+    else:
+        model = tf.keras.Model(inputs=input, outputs=dense_output)
+    return model
+    
+
+
 
 def get_max(layers):
-
     max_vals = [0]*len(layers)
-
     for i in range(len(layers)):
         for th in layers[i].curves:
             if(np.amax(th.curve)>max_vals[i]):
@@ -90,7 +91,7 @@ def prepare_dataset(layers):
     max_lengths = [0]*len(layers)
     
     max_val = get_max(layers)
-    
+
     print("Formatting dataset....\n")
     for i in range(len(layers)):
         layer_list = []
@@ -99,7 +100,6 @@ def prepare_dataset(layers):
             zeros = np.zeros(max_lengths[i]-len(th.curve), dtype=th.curve.dtype)
             padded_arr = np.append(th.curve, zeros)
             normalized_arr = np.divide(padded_arr, 1.0*curve_max)
-            # layer_list.append(np.reshape(normalized_arr, (len(normalized_arr), 1)))
             layer_list.append(normalized_arr)
         all_layers.append(np.array(layer_list))
     
@@ -124,7 +124,7 @@ def plot_losses(losses):
     plt.savefig(fpath+"loss_plot_"+str(num_epochs)+"_epochs.png")
 
 
-#find most recent model
+#find most recent saved model
 def get_newest_model():
     files = os.listdir(models_path)
     paths = [os.path.join(models_path, basename) for basename in files]
@@ -140,35 +140,38 @@ if __name__ == "__main__":
 
     print("Preparing dataset....\n")
     # all_layers, max_val = prepare_dataset(layers)
-    max_val = get_max(layers)
+    # max_val = get_max(layers)
 
 
-    # model = build_keras_RNN_model_2(max_val, test=False)
-    # model.summary()
-    # optim = RMSprop(learning_rate=lr, clipnorm=3)
-    # model.compile(optimizer=optim, loss='mse')
-    # model.load_weights(get_newest_model())
+    # model = build_keras_RNN_model(max_val, test=False)
+    model = build_test_model(test=False)
+    model.summary()
+    optim = tf.keras.optimizers.RMSprop(lr=lr, clipnorm=3)
+    model.compile(optimizer=optim, loss='mse')
+
+    # #if there are previously saved weights, load them in
+    # if(os.listdir(models_path) != []):
+    #     model.load_weights(get_newest_model())
     
     # criterion = tf.keras.losses.MeanSquaredError(reduction="sum")
     # optimizer = tf.keras.optimizers.RMSprop(learning_rate=0.001)
-    losses = []
-
     # model.compile(optimizer=optimizer, loss=criterion)
 
+    losses = []
 
     if(training):
-        for epoch in range(11, num_epochs+1):
+        for epoch in range(1, num_epochs+1):
             random.shuffle(indices)
             epoch_total_loss = 0.0
             epoch_sum_loss = 0.0
             for i in indices:
-                # print("\nLayer "+str(i)+"\n")
                 layer = layers[i]
                 batch_base=0
                 layer_loss_sum=0.0
 
                 start_time = time.time()
                 done = False
+
                 #create batch for testing
                 while(not(done)):
                     while(batch_base+batch_size>=len(layer.curves)):
@@ -181,6 +184,8 @@ if __name__ == "__main__":
                     for th in ths_batch:
                         if (len(th.curve)>max_length):
                             max_length = len(th.curve)
+
+                    #make curves in batch fixed length and normalize them
                     for th in ths_batch:
                         curve_max = np.amax(th.curve)
                         zeros = np.zeros(max_length-len(th.curve), dtype=th.curve.dtype)
@@ -189,9 +194,13 @@ if __name__ == "__main__":
                         batch_list.append(normalized_arr)
                     batch = np.array(batch_list)
 
-                    output_batch = batch.reshape(batch.shape[0], batch.shape[1], 1)
+                    # output_batch = batch.reshape(batch.shape[0], batch.shape[1], 1)
+                    batch = batch.reshape(batch.shape[0], batch.shape[1], 1)
 
-                    history1 = model.fit(batch, output_batch, epochs=1, verbose=0)
+
+                    # history1 = model.fit(batch, output_batch, epochs=1, verbose=0)
+                    history1 = model.fit(batch, batch, epochs=1, verbose=0)
+
 
                     layer_loss_sum += history1.history['loss'][0]
                     batch_base+=batch_size
@@ -227,7 +236,8 @@ if __name__ == "__main__":
 
 
     if(testing):
-        model = build_keras_RNN_model_2(max_val, test=True)
+        # model = build_keras_RNN_model(max_val, test=True)
+        model = build_test_model(test=True)
         model.load_weights(get_newest_model())
 
         for i in range(len(layers)):
@@ -261,6 +271,7 @@ if __name__ == "__main__":
                     batch_list.append(normalized_arr)
                 
                 batch = np.array(batch_list)
+                batch = np.reshape(batch, (batch.shape[0], batch.shape[1], 1))
 
                 batch_features = model.predict(batch)[0]
 

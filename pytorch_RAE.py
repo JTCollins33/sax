@@ -46,18 +46,20 @@ class RDecoder(nn.Module):
         super(RDecoder, self).__init__()
         self.r1 = nn.LSTM(input_size=num_classes, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
         self.r2 = nn.LSTM(input_size=hidden_size, hidden_size=output_size, num_layers=num_layers, batch_first=True)
-        
-        # #these are placeholders
-        # self.lin1 = nn.Linear(3,5)
-        # self.lin2 = nn.Linear(1, 2)
 
 
     def forward(self, input, dim):
-        # self.lin1 = nn.Linear(N_FEATURES, dim)
-        # self.lin2 = nn.Linear(dim, dim*N_FEATURES)
-        x = nn.Linear(N_FEATURES, dim)(input)
-        x = nn.Linear(dim, dim*N_FEATURES)(x)
-        x = torch.reshape(x, (x.shape[0], dim, N_FEATURES))
+        # with torch.no_grad():
+        #     x = nn.Linear(N_FEATURES, dim)(input)
+        #     x = nn.Linear(dim, dim*N_FEATURES)(x)
+
+        #simulate repeat_vector
+        x = torch.zeros([input.shape[0], dim, input.shape[1]], dtype = input[0][0].dtype)
+        for i in range(x.shape[0]):
+            for j in range(dim):
+                x[i][j] = input[i]
+
+        # x = torch.reshape(x, (x.shape[0], dim, N_FEATURES))
         x, (h_n, h_c) = self.r1(x, None)
         x, (h_n, h_c) = self.r2(x, None)
         return x

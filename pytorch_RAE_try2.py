@@ -26,9 +26,10 @@ testing=False
 
 
 class REncoder(nn.Module):
-    def __init__(self, num_features, hidden_size, num_layers, num_classes):
+    def __init__(self, num_features, hidden_size, num_layers, num_classes, device):
         super(REncoder, self).__init__()
         self.hidden_size=hidden_size
+        self.device = device
         self.r1 = nn.GRU(input_size=num_features, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
         # self.r2 = nn.GRU(input_size=hidden_size, hidden_size=N_FEATURES, batch_first=True)
         # self.emb = nn.Embedding(num_embeddings=20, embedding_dim=input_size)
@@ -36,7 +37,7 @@ class REncoder(nn.Module):
         self.lin1 = nn.Linear(hidden_size, num_classes)
 
     def forward(self, input, lens, hidden):
-        x = nn.utils.rnn.pack_padded_sequence(input, lens, batch_first=True)
+        x = nn.utils.rnn.pack_padded_sequence(input, lens.cpu(), batch_first=True).to(self.device)
         # x, hidden = self.r1(x, hidden)
         x, hidden = self.r1(x, None)
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
@@ -45,9 +46,10 @@ class REncoder(nn.Module):
         return out, hidden
 
 class RDecoder(nn.Module):
-    def __init__(self, output_size, hidden_size, num_layers, num_classes):
+    def __init__(self, output_size, hidden_size, num_layers, num_classes, device):
         super(RDecoder, self).__init__()
         self.hidden_size=hidden_size
+        self.device = device
         self.r1 = nn.GRU(input_size=num_classes, hidden_size=hidden_size, num_layers=num_layers, batch_first=True)
         # self.r2 = nn.GRU(input_size=hidden_size, hidden_size=output_size, num_layers=num_layers, batch_first=True)
         self.lin1 = nn.Linear(hidden_size, output_size)
@@ -59,7 +61,7 @@ class RDecoder(nn.Module):
         #     x = nn.Linear(dim, dim*N_FEATURES)(x)
 
         #simulate repeat_vector
-        x = torch.zeros([input.shape[0], dim, input.shape[1]], dtype = input[0][0].dtype)
+        x = torch.zeros([input.shape[0], dim, input.shape[1]], dtype = input[0][0].dtype).to(self.device)
         for i in range(x.shape[0]):
             for j in range(dim):
                 x[i][j] = input[i]
@@ -72,19 +74,20 @@ class RDecoder(nn.Module):
 
 
 class RAE(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_layers, num_classes):
+    def __init__(self, input_size, hidden_size, output_size, num_layers, num_classes, device):
         super(RAE, self).__init__()
         self.hidden_size=hidden_size
-        self.encoder = REncoder(input_size, hidden_size, num_layers, num_classes)
-        self.decoder = RDecoder(output_size, hidden_size, num_layers, num_classes)
+        self.device = device
+        self.encoder = REncoder(input_size, hidden_size, num_layers, num_classes, device)
+        self.decoder = RDecoder(output_size, hidden_size, num_layers, num_classes, device)
 
     def forward(self, input, dim, lens, hidden):
         features, hidden = self.encoder(input, lens, hidden)
         output, hidden = self.decoder(features, dim, hidden)
-        return output, hidden
+        return output.to(self.device), hidden.to(self.device)
 
     def initHidden(self):
-        return torch.zeros([1, batch_size, self.hidden_size], dtype=torch.float)
+        return torch.zeros([1, batch_size, self.hidden_size], dtype=torch.float).to(self.device)
 
 
 
@@ -176,7 +179,7 @@ if __name__ == "__main__":
     """
     Define Model
     """
-    model = RAE(1, 5, 1, 1, N_FEATURES).to(device)
+    model = RAE(1, 5, 1, 1, N_FEATURES, device).to(device)
     criterion = nn.MSELoss()
     optim = optim.Adam(model.parameters(), lr=lr)
 
@@ -229,10 +232,10 @@ if __name__ == "__main__":
                     batch = batch.reshape(batch.shape[0], batch.shape[1], 1).to(device)
 
                     #pass into model
-                    output, hidden = model(batch, batch.shape[1], seq_lens, hidden)
+                    output, hidden = model(batch, batch.shape[1], torch.tensor(seq_lens).to(device), hidden)
 
                     #compute loss and backpropagate
-                    loss = criterion(batch, output.to(device))
+                    loss = criterion(batch, output)
                     loss.backward()
                     optim.step()
                     optim.zero_grad()

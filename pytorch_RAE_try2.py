@@ -164,6 +164,8 @@ def sort_batch(layers):
 
 
 if __name__ == "__main__":
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     #get layer
     layers = get_layers(dir_path, fpath, resize=False)
 
@@ -174,7 +176,7 @@ if __name__ == "__main__":
     """
     Define Model
     """
-    model = RAE(1, 5, 1, 1, N_FEATURES)
+    model = RAE(1, 5, 1, 1, N_FEATURES).to(device)
     criterion = nn.MSELoss()
     optim = optim.Adam(model.parameters(), lr=lr)
 
@@ -224,13 +226,13 @@ if __name__ == "__main__":
                         batch_list.append(normalized_arr)
                     batch = torch.tensor(batch_list)
 
-                    batch = batch.reshape(batch.shape[0], batch.shape[1], 1)
+                    batch = batch.reshape(batch.shape[0], batch.shape[1], 1).to(device)
 
                     #pass into model
                     output, hidden = model(batch, batch.shape[1], seq_lens, hidden)
 
                     #compute loss and backpropagate
-                    loss = criterion(batch, output)
+                    loss = criterion(batch, output.to(device))
                     loss.backward()
                     optim.step()
                     optim.zero_grad()

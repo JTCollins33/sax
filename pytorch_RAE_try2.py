@@ -78,9 +78,10 @@ class RAE(nn.Module):
         self.decoder = RDecoder(output_size, hidden_size, num_layers, num_classes, device)
 
     def forward(self, input, dim, lens, hidden):
-        features, hidden = self.encoder(input, lens, hidden)
-        output, hidden = self.decoder(features, dim, hidden)
-        return output.to(self.device), hidden.to(self.device)
+        features, encoder_hidden = self.encoder(input, lens, hidden)
+        decoder_hidden = encoder_hidden[:1]
+        output, decoder_hidden = self.decoder(features, dim, decoder_hidden)
+        return output.to(self.device), decoder_hidden[:1].to(self.device)
 
     def initHidden(self):
         return torch.zeros([1, batch_size, self.hidden_size], dtype=torch.float).to(self.device)

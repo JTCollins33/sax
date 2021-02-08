@@ -38,8 +38,8 @@ class REncoder(nn.Module):
 
     def forward(self, input, lens, hidden):
         x = nn.utils.rnn.pack_padded_sequence(input, lens.cpu(), batch_first=True).to(self.device)
-        # x, hidden = self.r1(x, hidden)
-        x, hidden = self.r1(x, None)
+        x, hidden = self.r1(x, hidden)
+#         x, hidden = self.r1(x, None)
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
         x = x[:,-1,:]
         out = self.lin1(x)
@@ -56,18 +56,14 @@ class RDecoder(nn.Module):
 
 
     def forward(self, input, dim, hidden):
-        # with torch.no_grad():
-        #     x = nn.Linear(N_FEATURES, dim)(input)
-        #     x = nn.Linear(dim, dim*N_FEATURES)(x)
-
         #simulate repeat_vector
         x = torch.zeros([input.shape[0], dim, input.shape[1]], dtype = input[0][0].dtype).to(self.device)
         for i in range(x.shape[0]):
             for j in range(dim):
                 x[i][j] = input[i]
 
-        # x, hidden = self.r1(x, hidden)
-        x, hidden = self.r1(x, None)
+        x, hidden = self.r1(x, hidden)
+#         x, hidden = self.r1(x, None)
         x = self.lin1(x)
         return x, hidden
 

@@ -10,6 +10,8 @@ import time
 from layers_gather import get_layers, get_validation_layers
 from layer import Layer
 import random
+from torch.autograd import Variable
+
 
 
 dir_path = "./data/"
@@ -84,7 +86,7 @@ class RAE(nn.Module):
         return output.to(self.device), decoder_hidden[:1].to(self.device)
 
     def initHidden(self):
-        return torch.zeros([1, batch_size, self.hidden_size], dtype=torch.float).to(self.device)
+        return Variable(torch.zeros([1, batch_size, self.hidden_size], dtype=torch.float), requires_grad=True).to(self.device)
 
 
 
@@ -233,7 +235,7 @@ if __name__ == "__main__":
 
                     #compute loss and backpropagate
                     loss = criterion(batch, output)
-                    loss.backward()
+                    loss.backward(retain_graph=True)
                     optim.step()
                     optim.zero_grad()
 

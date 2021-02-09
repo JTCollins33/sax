@@ -40,7 +40,7 @@ class REncoder(nn.Module):
 
     def forward(self, input, lens, hidden):
         x = nn.utils.rnn.pack_padded_sequence(input, lens.cpu(), batch_first=True).to(self.device)
-        x, hidden = self.r1(x, hidden)
+        x, hidden = self.r1(x, None)
 #         x, hidden = self.r1(x, None)
         x, _ = nn.utils.rnn.pad_packed_sequence(x, batch_first=True)
         x = x[:,-1,:]

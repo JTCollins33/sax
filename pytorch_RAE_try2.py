@@ -179,6 +179,7 @@ if __name__ == "__main__":
     Define Model
     """
     model = RAE(1, 5, 1, 1, N_FEATURES, device).to(device)
+#     model = torch.load(get_newest_model()).to(device)
     criterion = nn.MSELoss()
     optim = optim.Adam(model.parameters(), lr=lr)
 

@@ -15,7 +15,7 @@ from torch.autograd import Variable
 
 
 dir_path = "./data/"
-fpath = "./data/featurization_figs/RAE/new/"
+fpath = "./LSTM_results/"
 models_path = "./pytorch_model_progress/"
 N_CLUSTERS=4
 num_epochs=100
@@ -94,19 +94,19 @@ class RAE(nn.Module):
 #perform agglomerative clustering
 def dt(layer):
     print("Performing clustering....\n")
-    layer.agglomerative_clustering(n_clusters=N_CLUSTERS)
+    layer.agglomerative_clustering()
 
     print("Plotting results....\n")
     layer.plot_dt(max_clusters=N_CLUSTERS)
 
 
-    layer.dt_features = np.array(layer.dt_features)
-    print("Calculating cluster probabilities....\n")
-    layer.fuzzy_kmeans_AE(clusters=N_CLUSTERS, standardize=True)
+#     layer.dt_features = np.array(layer.dt_features)
+#     print("Calculating cluster probabilities....\n")
+#     layer.fuzzy_kmeans_AE(clusters=N_CLUSTERS, standardize=True)
 
 
-    print("Plotting frequency graphs....\n")
-    layer.plot_kmeans_freqs(fpath+"kmeans_frequencies/")
+#     print("Plotting frequency graphs....\n")
+#     layer.plot_kmeans_freqs(fpath+"kmeans_frequencies/")
 
 
 def get_max(layers):
@@ -266,4 +266,43 @@ if __name__ == "__main__":
     Start Testing
     """
     if(testing):
-        x=2
+        for i in range(len(layers)):
+            layer = layers[i]
+            layer_list = []
+            layer_features=[]
+            done=False
+            batch_base=0
+            while(not(done) and batch_base<len(layer.curves)):
+                start=batch_base
+                end=batch_base+batch_size
+                
+                while(end>len(layer.curves)):
+                    end-=1
+                    done=True
+                ths_batch=layer.curves[start:end]
+                batch_list=[]
+                max_length=0
+                seq_lens=[]
+                for th in ths_batch:
+                    seq_lens.append(len(th.curve))
+                    if(len(th.curve)>max_length):
+                        max_length=len(th.curve)
+                for th in ths_batch:
+                    curve_max = np.amax(th.curve)
+                    zeros = np.zeros(max_length-len(th.curve), dtype=th.curve.dtype)
+                    padded_arr = np.append(th.curve, zeros)
+                    normalized_arr = np.divide(padded_arr, 1.0*curve_max)
+                    # int_arr = normalized_arr.astype(np.int64)
+                    batch_list.append(normalized_arr)
+                batch = torch.tensor(batch_list)
+
+                batch = batch.reshape(batch.shape[0], batch.shape[1], 1).to(device)
+                batch_features, _ = model.encoder(batch, seq_lens, hidden)
+                
+                for j in range(batch_features.shape[0]):
+                    layer_features.append(batch_features[j].cpu().detach().numpy())
+                
+                batch_base += batch_size
+                
+            layers[i].set_dt_features(layer_features)
+            dt(layers[i])

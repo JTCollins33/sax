@@ -10,7 +10,8 @@ from layer import Layer
 
 dir_path = "./data/"
 models_path = "./model_progress/"
-fpath = "./data/featurization_figs/AE/10_features/test_length/"
+fpath = "./data/featurization_figs/AE/"
+N_CLUSTERS=4
 
 #find most recent model
 def get_newest_model():
@@ -21,27 +22,41 @@ def get_newest_model():
 #perform agglomerative clustering
 def dt(layer):
     print("Performing clustering....\n")
-    layer.agglomerative_clustering()
+    layer.agglomerative_clustering(n_clusters=N_CLUSTERS)
 
     print("Plotting results....\n")
-    layer.plot_dt(max_clusters=4)
+    layer.plot_dt(max_clusters=N_CLUSTERS)
+
+
+    layer.dt_features = np.array(layer.dt_features)
+    print("Calculating cluster probabilities....\n")
+    layer.fuzzy_kmeans_AE(clusters=N_CLUSTERS, standardize=True)
+
+
+    print("Plotting frequency graphs....\n")
+    layer.plot_kmeans_freqs(fpath+"kmeans_frequencies/")
+
 
 def kmeans(layer):
     #convert into appropriate format first
     layer.dt_features = np.array(layer.dt_features)
 
     print("Performing kmeans....\n")
-    layer.kmeans_AE(clusters=4, standardize=True)
+    # layer.kmeans_AE(clusters=N_CLUSTERS, standardize=True)
+    layer.fuzzy_kmeans_AE(clusters=N_CLUSTERS, standardize=True)
+
 
     print("Plotting results....\n")
-    layer.plot_kmeans(max_clusters=4)
+    layer.plot_kmeans(max_clusters=N_CLUSTERS)
+    # layer.plot_kmeans_freqs()
+
 
 def tsne(layer):
     print("Performing tsne....\n")
     layer.tsne_AE()
 
     print("Plotting results....\n")
-    layer.plot_tsne()
+    # layer.plot_tsne()
 
 
 #method to perform testing
@@ -57,9 +72,7 @@ def test(AE_model, layers, curve_size):
         layer_tensor = torch.reshape(torch.tensor(layer_list), (len(layer_list), 1, curve_size))
 
         #get features from encoder
-        # mids = AE_model.encoder_pt1(layer_tensor).view(-1, 1, 70)
-        # mids = AE_model.encoder_pt1(layer_tensor).view(-1, 1, 56)
-        mids = AE_model.encoder_pt1(layer_tensor).view(-1, 1, 35)
+        mids = AE_model.encoder_pt1(layer_tensor).view(-1, 1, 144)
 
         features = AE_model.encoder_pt2(mids)
 
@@ -81,6 +94,30 @@ def test(AE_model, layers, curve_size):
         dt(layer)
         # kmeans(layer)
         # tsne(layer)
+
+
+
+
+    # for layer in layers:
+    #     #find max number of peaks
+    #     n_peaks=[]
+    #     max_n_peaks = 0
+    #     for th in layer.curves:
+    #         if th.num_peaks > max_n_peaks:
+    #             max_n_peaks=th.num_peaks
+    #         n_peaks.append(th.num_peaks)
+        
+    #     n_peaks = np.array(n_peaks)
+    #     n_peaks = np.true_divide(n_peaks, (1.0*(max_n_peaks)))
+    #     n_peaks = (n_peaks*(4-1))
+
+
+    #     plt.figure(figsize=(8,6))
+    #     plt.scatter(layer.tsne_fit[:,0], layer.tsne_fit[:,1], c=n_peaks)
+
+    # name = 'tsne.png'
+    # plt.savefig(fpath+ name, bbox_inches='tight', dpi=1200)
+
 
 
 if __name__ == '__main__':

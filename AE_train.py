@@ -15,11 +15,11 @@ from AE_test import test
 
 
 dir_path = "./data/"
-fpath = "./data/featurization_figs/AE/10_features/test_length/"
+fpath = "./data/featurization_figs/"
 loss_plots_path = "./loss_plots/"
 n_epochs = 1000
 learning_rate = 0.001
-ngpu = 1
+ngpu = 0
 TEST = True
 
 if __name__ == '__main__':
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 
     #setup model
-    AE = Autoencoder(ngpu).to(device)
+    AE = Autoencoder().to(device)
 
     #setup loss function
     lossF = nn.MSELoss()
@@ -50,7 +50,8 @@ if __name__ == '__main__':
         indices.append(i)
 
     print("Starting autoencoder training...\n")
-    for epoch in range(1, n_epochs+1):
+    epoch = 1
+    while epoch < n_epochs+1:
         random.shuffle(indices)
         for i in indices:
             layer = []
@@ -93,7 +94,7 @@ if __name__ == '__main__':
             n_val_losses = len(validation_losses)
             if (n_val_losses>1):
                 #if model starts to overfit, save model and exit training
-                if (validation_losses[n_val_losses-1] > validation_losses[n_val_losses-2]):
+                if ((validation_losses[n_val_losses-1] > validation_losses[n_val_losses-2]) and (validation_losses[n_val_losses-2]>validation_losses[n_val_losses-3])):
                     torch.save(AE, "./model_progress/AE_model_"+str(epoch)+"_epochs.pth")
                     epoch = n_epochs
 
@@ -101,6 +102,8 @@ if __name__ == '__main__':
         if(epoch%10==0 or epoch==n_epochs):
             if isinstance(AE, nn.Module):
                 torch.save(AE, "./model_progress/AE_model_"+str(epoch)+"_epochs.pth")
+
+        epoch +=1
 
 
     #plot training losses

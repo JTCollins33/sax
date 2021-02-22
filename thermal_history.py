@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from scipy.signal import find_peaks
 import numpy as np
 import re
 import pywt
@@ -9,6 +10,7 @@ import pywt
 class ThermalHistory:
     def __init__(self, curve, index=None, position=None, figs=None):
         self.curve = curve
+        self.num_peaks = 0
         self.index = index
         self.position = position
         self.sax = None
@@ -21,13 +23,40 @@ class ThermalHistory:
     def reduce_size_to_min(self, min):
         self.curve = self.curve[0:min]    
 
+    #fit th curve to desired size
+    def fit_to_size(self, size):
+        if(len(self.curve) > size):
+            self.curve = self.curve[0:size]
+        elif(len(self.curve) < size):
+            # zeros = np.zeros(size-len(self.curve), dtype=self.curve.dtype)
+            # self.curve = np.append(self.curve, zeros)
+            #instead appent with last value
+            val = self.curve[-1]
+            appends = np.full((size-len(self.curve)), val, dtype=self.curve.dtype)
+            self.curve = np.append(self.curve, appends)
+
+    #center thermal history curve around max with size size
+    def shrink_around_max(self, size):
+        max_val = np.max(self.curve)
+        max_index = np.where(self.curve==max_val)[0]
+
+        start_index = int(max_index[0]-(size/2))
+
+        #make sure start is a proper index
+        while(start_index<0):
+            start_index+=1
+
+        end_index = start_index+size
+        
+        self.curve = self.curve[start_index:end_index]
+
 
     #this computes the wavelet transform for the given thermal history curve
     def compute_wt(self):
         self.wavelets, freqs = pywt.dwt(self.curve, 'db1')
 
     #this shrinks an array to length min and centers it around its max value
-    def shrink_around_max(self, min):
+    def shrink_around_max_wt(self, min):
         max_index = 0
         max_val = float(self.wavelets[0])
         for i in range(len(self.wavelets)):
@@ -101,34 +130,69 @@ class ThermalHistory:
         self.wavelets.append([0]*add_cols)
         self.wavelets = np.array(self.wavelets)
 
+
     #this computes the selected features of the ths curves and returns them
     #FEATURES: max value and # points above specified value
     def get_dt_features(self, threshold=500.0):
-        #find max value
-        max_val = max(self.curve)
+        # #find max value
+        # max_val = max(self.curve)
 
-        # #find number of points above certain threshold
-        # count = sum(i>threshold for i in self.curve)
+        # # #find number of points above certain threshold
+        # # count = sum(i>threshold for i in self.curve)
 
-        n_peaks = 0
-        peaks = []
-        #find number of peaks in dataset
-        for j in range(len(self.curve)):
-            if j>0 and j< (len(self.curve)-1):
-                if (self.curve[j] > (self.curve[j-1]+20)) and (self.curve[j] > (self.curve[j+1]+20)):
-                    n_peaks += 1
-                    peaks.append(j)
+        # n_peaks = 0
+        # peaks = []
+        # #find number of peaks in dataset
+        # for j in range(len(self.curve)):
+        #     if j>0 and j< (len(self.curve)-1):
+        #         if (self.curve[j] > (self.curve[j-1]+20)) and (self.curve[j] > (self.curve[j+1]+20)):
+        #             n_peaks += 1
+        #             peaks.append(j)
 
-        peak_distance = 0
-        #find max distance between peaks
-        if len(peaks)>1:
-            for i in range(len(peaks)-1):
-                if((peaks[i+1]-peaks[i]) > peak_distance):
-                    peak_distance = (peaks[i+1]-peaks[i])
+        # peak_distance = 0
+        # #find max distance between peaks
+        # if len(peaks)>1:
+        #     for i in range(len(peaks)-1):
+        #         if((peaks[i+1]-peaks[i]) > peak_distance):
+        #             peak_distance = (peaks[i+1]-peaks[i])
 
+        features=[]
+
+        peaks = find_peaks(self.curve)[0].tolist()
+        n_zeros = 6-len(peaks)
+        peaks.extend([0]*n_zeros)
+        
+        if(len(peaks)>6):
+            maxes=[]
+            while len(maxes)<6:
+                max_val = 0
+                index=-1
+                for i in peaks:
+                    if self.curve[i]>max_val:
+                        max_val=self.curve[i]
+                        index=i
+
+
+                maxes.append(index)
+                peaks.remove(index)
+            
+            peaks = sorted(maxes)
+
+
+        # peaks = peaks[0:5]
+        times = []
+        for i in range(len(peaks)-1):
+            times.append(peaks[i+1]-peaks[i])
+
+        features.extend(peaks)
+        features.extend(times)
+
+        return features
         # return max_val, count, n_peaks, peak_distance
-        return max_val, n_peaks, peak_distance
 
+
+    def set_num_peaks(self):
+        self.num_peaks = len(find_peaks(self.curve)[0].tolist())
 
 
     #this translates thermal temperatures into leters a-e

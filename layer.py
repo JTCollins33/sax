@@ -5,14 +5,18 @@ import operator
 import os
 import sklearn.cluster as cluster
 from sklearn.mixture import GaussianMixture
-# from sklearn_extra.cluster import KMedoids
+from sklearn import mixture
+from sklearn_extra.cluster import KMedoids
 from sklearn.cluster import AgglomerativeClustering
+from fcmeans import FCM
 import sklearn.decomposition as decomp
 import sklearn.manifold as man
 import sklearn.preprocessing as pp
+import seaborn as sns
 
 WAVELET_LENGTH=20
-N_DT_FEATURES=3
+N_DT_FEATURES=11
+N_CLUSTERS=4
 
 class Layer:
     def __init__(self, curves, points, index=None, figs=None):
@@ -22,9 +26,11 @@ class Layer:
             self.curves = None
         self.points = points
         self.tsne_fit = None
+        self.tsne_labels = None
         self.pca_fit = None
         self.kmeans_fit = None
         self.kmeans_labels = None
+        self.kmeans_scores = None
         self.tsbm = None
         self.wavelets = None
         self.distance = None
@@ -176,16 +182,18 @@ class Layer:
         #get key features for each thermal curve
         for i in range(len(self.curves)):
             # self.dt_features[i][0], self.dt_features[i][1], self.dt_features[i][2], self.dt_features[i][3] = self.curves[i].get_dt_features(threshold=1000.0)
-            self.dt_features[i][0], self.dt_features[i][1], self.dt_features[i][2] = self.curves[i].get_dt_features(threshold=1000.0)
+            self.dt_features[i][:] = self.curves[i].get_dt_features(threshold=1000.0)
         print("Done calculating decision tree features.\n")
 
     #this method sets the decision tree features found in auto-encoder
     def set_dt_features(self, features):
         self.dt_features = features
+        for th in self.curves:
+            th.set_num_peaks()
         
 
-    def agglomerative_clustering(self):
-        model = AgglomerativeClustering(n_clusters=4, affinity='euclidean', linkage='ward')
+    def agglomerative_clustering(self, n_clusters=4):
+        model = AgglomerativeClustering(n_clusters=n_clusters, affinity='euclidean', linkage='ward')
         self.dt_fit = model.fit(self.dt_features)
         self.dt_labels = model.labels_
 
@@ -198,6 +206,10 @@ class Layer:
                              learning_rate=learning_rate)
         self.tsne_fit = tsne_func.fit_transform(self.tsbm)
 
+    def tsne_AE(self, comps=2):
+        tsne_func = man.TSNE(n_components=comps, n_iter=300)
+        self.tsne_fit = tsne_func.fit_transform(self.dt_features)
+
     def kmeans(self, clusters=5, standardize=True):
         mask = np.all(self.tsbm == 0, axis=0)
         d = self.tsbm[:, np.invert(mask)]
@@ -208,12 +220,22 @@ class Layer:
 
     def kmeans_AE(self, clusters=5, standardize=True):
         mask = np.all(self.dt_features==0, axis=0)
-        d = self.dt_features[:, np.invert(mask)]
+        # d = self.dt_features[:, np.invert(mask)]
+        d = self.dt_features
         if standardize:
             d = pp.StandardScaler().fit_transform(d)
         self.kmeans_fit = cluster.KMeans().fit(d)
         self.kmeans_labels = self.kmeans_fit.labels_
 
+    def fuzzy_kmeans_AE(self, clusters=4, standardize=True):
+        mask = np.all(self.dt_features == 0, axis=0)
+        d = self.dt_features[:,np.invert(mask)]
+        if standardize:
+            d = pp.StandardScaler().fit_transform(d)
+        fcm = FCM(n_clusters=clusters)
+        self.kmeans_fit = fcm.fit(d)
+        self.kmeans_fit.cluster_centers_ = fcm.centers
+        self.kmeans_fit.labels_=fcm.u
 
     def kmeans_wt(self, clusters=5, standardize=True):
         mask = np.all(self.wavelets == 0, axis=0)
@@ -260,9 +282,27 @@ class Layer:
         self.kmeans_fit = GaussianMixture(n_components=clusters).predict(d)
 
     def plot_tsne(self):
-        plt.clf()
-        plt.scatter(self.tsne_fit[:, 0], self.tsne_fit[:, 1])
-        plt.show()
+        #find max number of peaks
+        n_peaks=[]
+        for th in self.curves:
+            n_peaks.append(th.num_peaks)
+
+        max_n_peaks=max(n_peaks)
+        
+        n_peaks = np.array(n_peaks)
+        n_peaks = np.true_divide(n_peaks, (1.0*(max_n_peaks)))
+        n_peaks = (n_peaks*(N_CLUSTERS-1))
+        # n_peaks = (n_peaks*(N_CLUSTERS-1)).astype(int)
+
+        # palette = sns.color_palette("bright", N_CLUSTERS)
+
+        # plt.clf()
+        plt.figure(figsize=(8,6))
+        plt.scatter(self.tsne_fit[:,0], self.tsne_fit[:,1], c=n_peaks)
+        # sns.scatterplot(self.tsne_fit[:,0], self.tsne_fit[:,1], hue=n_peaks, legend='full', palette=palette)
+
+        name = 'tsne.png'
+        plt.savefig(self.figs + name, bbox_inches='tight', dpi=1200)
 
     def plot_dt(self, max_clusters=None):
         plt.clf()
@@ -287,7 +327,6 @@ class Layer:
         plt.axes().set_aspect('equal', 'datalim')
         name = 'dt_' + str(self.index) + '.png'
         plt.savefig(self.figs + name, bbox_inches='tight', dpi=1200)
-
 
     def plot_pca(self, max_clusters=None):
         plt.clf()
@@ -449,3 +488,26 @@ class Layer:
         plt.clf()
         plt.scatter(self.points[:, [0]], self.points[:, [1]], c=self.vector)
         plt.show()
+
+    def plot_kmeans_freqs(self, fpath, suffix=''):
+            cc = self.kmeans_fit.cluster_centers_
+            # labels = [0,1,2,3]
+            # labels = np.array(labels)
+            plt.clf()
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            for axis in ['top', 'bottom', 'left', 'right']:
+                ax.spines[axis].set_linewidth(2)
+            ax.tick_params(width=2, labelsize='large')
+            mask = np.all(self.dt_features == 0, axis=0)
+            # plt.xticks(range(np.count_nonzero(np.invert(mask))), labels[np.invert(mask)])
+            plt.ylabel('Standardized Frequency', fontsize='large', fontweight='bold')
+            color = iter(plt.cm.rainbow(np.linspace(0, 1, cc.shape[0])))
+            name = "kmeans_frequencies_"+str(self.index)+".png"
+            for i in range(cc.shape[0]):
+                c = next(color)
+                label = 'Cluster ' + str(i)
+                plt.plot(cc[[i], :][0], label=label, linewidth=3, marker='o', linestyle='--', c=c)
+            ax.legend()
+            plt.savefig(fpath+name, bbox_inches='tight', dpi=1200)
+            plt.close()
